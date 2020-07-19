@@ -23,10 +23,16 @@ impl Client {
     }
     pub fn construct_request(request_type: RequestType, version: &str, path: &str) -> String {
         let mut result: String = String::new();
-        let suffix = " HTTP/1.0\r\n\r\n";
+        let suffix = " HTTP/1.0";
+        let clcr = "\r\n\r\n";
         result.push_str(&request_type.to_string());
         result.push_str(&(version.to_string() + path));
         result.push_str(suffix);
+        match request_type {
+            RequestType::POST => result.push_str("\nContent-Type: application/x-tar"),
+            _ => ()
+        };
+        result.push_str(clcr);
         result.to_string()
     }
     pub async fn request(&mut self, request_type: RequestType, path: &str) -> Response {
@@ -36,6 +42,17 @@ impl Client {
             _ => panic!("Client is not connected! Please check your user group, check socket address and user group.")
         };
         stream.write_all(req.as_bytes()).unwrap();
+        let mut resp = String::new();
+        stream.read_to_string(&mut resp).unwrap();
+
+        self.parse_response(resp)
+    }
+    pub async fn request_with_str(&mut self, req_str: &str) -> Response {
+        let mut stream = match self.stream.as_ref() {
+            Some(x) => x,
+            _ => panic!("Client is not connected! Please check your user group, check socket address and user group.")
+        };
+        stream.write_all(req_str.as_bytes()).unwrap();
         let mut resp = String::new();
         stream.read_to_string(&mut resp).unwrap();
 
@@ -118,4 +135,11 @@ mod tests {
         let mut client = Client::new("/var/run/docker.sock-fail", "/v1.40");
         let _a = client.list_images().await;
     }
+    // #[tokio::main]
+    // #[test]
+    // async fn build_image() {
+    //     let mut client = Client::default();
+    //     let a = client.build_image().await;
+    //     println!("{:?}", a);
+    // }
 }
